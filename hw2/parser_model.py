@@ -70,15 +70,23 @@ class ParserModel(nn.Module):
         ###     nn.Parameter: https://pytorch.org/docs/stable/nn.html#parameters
         ###     Initialization: https://pytorch.org/docs/stable/nn.init.html
         ###     Dropout: https://pytorch.org/docs/stable/nn.html#dropout-layers
-        ### 
+        ###
         ### See the PDF for hints.
 
-
-
+        self.embed_to_hidden_weight = nn.Parameter(torch.zeros((n_features * self.embed_size, hidden_size)))
+        # print(self.embed_to_hidden_weight.shape)
+        nn.init.xavier_uniform_(self.embed_to_hidden_weight.data)
+        self.embed_to_hidden_bias = nn.Parameter(torch.Tensor(hidden_size))
+        nn.init.uniform_(self.embed_to_hidden_bias.data)
+        self.dropout = nn.Dropout(self.dropout_prob)
+        self.hidden_to_logits_weight = nn.Parameter(torch.zeros((hidden_size, n_classes)))
+        nn.init.xavier_uniform_(self.hidden_to_logits_weight.data)
+        self.hidden_to_logits_bias = nn.Parameter(torch.zeros(n_classes))
+        nn.init.uniform_(self.hidden_to_logits_bias.data)
 
         ### END YOUR CODE
 
-    def embedding_lookup(self, w):
+    def embedding_lookup(self, w: torch.Tensor):
         """ Utilize `w` to select embeddings from embedding matrix `self.embeddings`
             @param w (Tensor): input tensor of word indices (batch_size, n_features)
 
@@ -106,8 +114,8 @@ class ParserModel(nn.Module):
         ###     Gather: https://pytorch.org/docs/stable/torch.html#torch.gather
         ###     View: https://pytorch.org/docs/stable/tensors.html#torch.Tensor.view
         ###     Flatten: https://pytorch.org/docs/stable/generated/torch.flatten.html
-        x = None
 
+        x = torch.index_select(self.embeddings, 0, w.view(-1)).reshape((w.shape[0], w.shape[1] * self.embed_size))
 
         ### END YOUR CODE
         return x
@@ -143,7 +151,12 @@ class ParserModel(nn.Module):
         ### Please see the following docs for support:
         ###     Matrix product: https://pytorch.org/docs/stable/torch.html#torch.matmul
         ###     ReLU: https://pytorch.org/docs/stable/nn.html?highlight=relu#torch.nn.functional.relu
-        logits = None
+
+        logits = self.embedding_lookup(w)
+        logits = logits @ self.embed_to_hidden_weight + self.embed_to_hidden_bias
+        logits = self.dropout(F.relu(logits))
+        logits = logits @ self.hidden_to_logits_weight + self.hidden_to_logits_bias
+        logits = self.dropout(F.relu(logits))
 
         ### END YOUR CODE
         return logits

@@ -8,6 +8,7 @@ Haoshen Hong <haoshen@stanford.edu>
 """
 
 import sys
+from typing import List, Tuple
 
 class PartialParse(object):
     def __init__(self, sentence):
@@ -30,9 +31,12 @@ class PartialParse(object):
         ###             Order for this list doesn't matter.
         ###
         ### Note: The root token should be represented with the string "ROOT"
-        ### Note: If you need to use the sentence object to initialize anything, make sure to not directly 
-        ###       reference the sentence object.  That is, remember to NOT modify the sentence object. 
+        ### Note: If you need to use the sentence object to initialize anything, make sure to not directly
+        ###       reference the sentence object.  That is, remember to NOT modify the sentence object.
 
+        self.stack: List[str] = ["ROOT"]
+        self.buffer: List[str] = [word for word in sentence]
+        self.dependencies: List[Tuple[str, str]] = []
 
         ### END YOUR CODE
 
@@ -52,6 +56,18 @@ class PartialParse(object):
         ###         2. Left Arc
         ###         3. Right Arc
 
+        if transition == "S":
+            self.stack.append(self.buffer.pop(0))
+        elif transition == "LA":
+            head = self.stack[-1]
+            dependent = self.stack.pop(-2)
+            self.dependencies.append((head, dependent))
+        elif transition == "RA":
+            dependent = self.stack.pop()
+            head = self.stack[-1]
+            self.dependencies.append((head, dependent))
+        else:
+            raise ValueError("Unsupported transition")
 
         ### END YOUR CODE
 
@@ -69,7 +85,7 @@ class PartialParse(object):
         return self.dependencies
 
 
-def minibatch_parse(sentences, model, batch_size):
+def minibatch_parse(sentences: List[List[str]], model, batch_size: int):
     """Parses a list of sentences in minibatches using a model.
 
     @param sentences (list of list of str): A list of sentences to be parsed
@@ -87,7 +103,7 @@ def minibatch_parse(sentences, model, batch_size):
                                                     same as in sentences (i.e., dependencies[i] should
                                                     contain the parse for sentences[i]).
     """
-    dependencies = []
+    dependencies: List[List[Tuple[str, str]]] = []
 
     ### YOUR CODE HERE (~8-10 Lines)
     ### TODO:
@@ -103,6 +119,16 @@ def minibatch_parse(sentences, model, batch_size):
     ###             to remove objects from the `unfinished_parses` list. This will free the underlying memory that
     ###             is being accessed by `partial_parses` and may cause your code to crash.
 
+    partial_parses = [PartialParse(sentence) for sentence in sentences]
+    unfinished_parses = partial_parses
+    while len(unfinished_parses) > 0:
+        real_batch_size = min(len(unfinished_parses), batch_size)
+        mini_batch = unfinished_parses[0:real_batch_size]
+        transitions = model.predict(mini_batch)
+        for transition, partial_parse in zip(transitions, mini_batch):
+            partial_parse.parse_step(transition)
+        unfinished_parses = [parse for parse in unfinished_parses if (len(parse.buffer) != 0 or len(parse.stack) != 1)]
+    dependencies = [partial_parse.dependencies for partial_parse in partial_parses]
 
     ### END YOUR CODE
 

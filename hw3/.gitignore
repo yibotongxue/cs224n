@@ -5,3 +5,7 @@ zh_en_data
 *.model
 *.vocab
 vocab.json
+
+model.bin*
+outputs/
+runs/

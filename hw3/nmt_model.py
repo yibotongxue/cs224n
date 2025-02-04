@@ -81,7 +81,25 @@ class NMT(nn.Module):
         ###     Dropout Layer:
         ###         https://pytorch.org/docs/stable/generated/torch.nn.Dropout.html
 
-
+        # 输入的embedding长为embed_size，输出的embedding长也为embed_size
+        self.post_embed_cnn = nn.Conv1d(in_channels=embed_size, out_channels=embed_size, kernel_size=2, padding='same')
+        # 输入的embedding长为embed_size，输出的embedding长也为embed_size，隐藏状态的长度为hidden_size
+        self.encoder = nn.LSTM(input_size=embed_size, hidden_size=hidden_size, bidirectional=True)
+        # 输入的embedding长为embed_size+hidden_size，输出的长度也为embed_size+hidden_size，隐藏状态的长度为hidden_size
+        self.decoder = nn.LSTMCell(input_size=embed_size+hidden_size, hidden_size=hidden_size)
+        # 线性投影，接在encoder的输出上，输入为第一个隐状态和最后一个隐状态，长度为2*hidden_size，输出为hidden_size
+        self.h_projection = nn.Linear(in_features=hidden_size*2, out_features=hidden_size, bias=False)
+        # 线性投影，接在encoder的输出上，输入为第一个细胞状态和最后一个细胞状态，长度为2*hidden_size，输出为hidden_size
+        self.c_projection = nn.Linear(in_features=hidden_size*2, out_features=hidden_size, bias=False)
+        # 用于求decoder的输出与encoder的输出的注意力权重，输入为hidden_size*2，输出为hidden_size
+        # 对应的表达式为 $e_{t,i}=(h_t^{dec})^TW_{attProj}h_i^{enc}$
+        self.att_projection = nn.Linear(in_features=hidden_size*2, out_features=hidden_size, bias=False)
+        # 输入为注意力输出(长2*hidden_size)和decoder的隐状态拼接的结果，输出为hidden_size
+        self.combined_output_projection = nn.Linear(in_features=3*hidden_size, out_features=hidden_size, bias=False)
+        # 输入为组合输出向量，输出为词典的长度
+        self.target_vocab_projection = nn.Linear(in_features=hidden_size, out_features=len(self.vocab.tgt), bias=False)
+        # 接在combined_output_projection之后，接在target_vocab_projection之前
+        self.dropout = nn.Dropout(p=self.dropout_rate)
 
         ### END YOUR CODE
 
@@ -176,11 +194,15 @@ class NMT(nn.Module):
         ###     Tensor Permute:
         ###         https://pytorch.org/docs/stable/generated/torch.permute.html
 
-
-
-
-
-
+        X = self.model_embeddings.source(source_padded)
+        X = torch.permute(X, (1, 2, 0))
+        X = self.post_embed_cnn(X)
+        X = torch.permute(X, (2, 0, 1))
+        enc_hiddens, (last_hidden, last_cell) = self.encoder(pack_padded_sequence(X, source_lengths, enforce_sorted=False))
+        enc_hiddens, _ = pad_packed_sequence(enc_hiddens, batch_first=True)
+        init_decoder_hidden = self.h_projection(torch.cat((last_hidden[0], last_hidden[1]), dim=-1))
+        init_decoder_cell = self.c_projection(torch.cat((last_cell[0], last_cell[1]), dim=-1))
+        dec_init_state = (init_decoder_hidden, init_decoder_cell)
 
         ### END YOUR CODE
 

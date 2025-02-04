@@ -48,8 +48,11 @@ class ModelEmbeddings(nn.Module):
         ###     Embedding Layer:
         ###         https://pytorch.org/docs/stable/generated/torch.nn.Embedding.html
 
-        self.source = nn.Embedding(len(vocab.src), embedding_dim=embed_size, padding_idx=src_pad_token_idx)
-        self.target = nn.Embedding(len(vocab.tgt), embedding_dim=embed_size, padding_idx=tgt_pad_token_idx)
+        # num_embeddings: 词库的大小
+        # embedding_dim: 每个词向量的维度
+        # padding_idx: 填充的索引
+        self.source = nn.Embedding(num_embeddings=len(vocab.src), embedding_dim=embed_size, padding_idx=src_pad_token_idx)
+        self.target = nn.Embedding(num_embeddings=len(vocab.tgt), embedding_dim=embed_size, padding_idx=tgt_pad_token_idx)
 
         ### END YOUR CODE
 

@@ -100,7 +100,7 @@ def compute_corpus_level_bleu_score(references: List[List[str]], hypotheses: Lis
     # remove the start and end tokens
     if references[0][0] == '<s>':
         references = [ref[1:-1] for ref in references]
-    
+
     # detokenize the subword pieces to get full sentences
     detokened_refs = [''.join(pieces).replace('▁', ' ') for pieces in references]
     detokened_hyps = [''.join(hyp.value).replace('▁', ' ') for hyp in hypotheses]
@@ -135,7 +135,7 @@ def train(args: Dict):
 
     vocab = Vocab.load(args['--vocab'])
 
-    # model = NMT(embed_size=int(args['--embed-size']),                                 # EDIT: 4X EMBED AND HIDDEN SIZES 
+    # model = NMT(embed_size=int(args['--embed-size']),                                 # EDIT: 4X EMBED AND HIDDEN SIZES
     #             hidden_size=int(args['--hidden-size']),
     #             dropout_rate=float(args['--dropout']),
     #             vocab=vocab)
@@ -144,7 +144,7 @@ def train(args: Dict):
                 hidden_size=768,
                 dropout_rate=float(args['--dropout']),
                 vocab=vocab)
-    
+
     tensorboard_path = "nmt" if args['--cuda'] else "nmt_local"
     writer = SummaryWriter(log_dir=f"./runs/{tensorboard_path}")
     model.train()
@@ -238,15 +238,15 @@ def train(args: Dict):
                     beam_size=10,
                     max_decoding_time_step=int(args['--max-decoding-time-step'])
                 )[0]
-                
+
                 valid_metric = -dev_ppl
 
                 writer.add_scalar("perplexity/val", dev_ppl, train_iter)
 
-                
+
                 writer.add_text(
                     f'example_translation_with_beam_search',
-                    format_example_sentence(example_sentence_src, example_sentence_tgt, example_hypothesis_beam, train_iter), 
+                    format_example_sentence(example_sentence_src, example_sentence_tgt, example_hypothesis_beam, train_iter),
                     train_iter
                 )
 
@@ -278,12 +278,12 @@ def train(args: Dict):
                         print('load previously best model and decay learning rate to %f' % lr, file=sys.stderr)
 
                         # load model
-                        params = torch.load(model_save_path, map_location=lambda storage, loc: storage)
+                        params = torch.load(model_save_path, weights_only=False, map_location=lambda storage, loc: storage)
                         model.load_state_dict(params['state_dict'])
                         model = model.to(device)
 
                         print('restore parameters of the optimizers', file=sys.stderr)
-                        optimizer.load_state_dict(torch.load(model_save_path + '.optim'))
+                        optimizer.load_state_dict(torch.load(model_save_path + '.optim', weights_only=False))
 
                         # set new lr
                         for param_group in optimizer.param_groups:

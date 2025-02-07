@@ -107,10 +107,8 @@ class CharCorruptionDataset(Dataset):
         doc = self.data[idx]
         doc_len = len(doc)
         corruption_len = random.randint(4, min(doc_len, max(4, int(self.block_size*7/8))))
-        start = random.randint(0, doc_len - corruption_len)
-        end = start + corruption_len
-        corruption_doc = doc[start:end]
-        mask_len = random.randint(int(1/8*corruption_len), int(3/8*corruption_len))
+        corruption_doc = doc[:corruption_len]
+        mask_len = random.randint(1, int(1/2*corruption_len))
         mask_start = random.randint(0, corruption_len - mask_len)
         mask_end = mask_start + mask_len
         prifix = corruption_doc[:mask_start]

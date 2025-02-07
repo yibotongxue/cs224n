@@ -101,7 +101,28 @@ class CharCorruptionDataset(Dataset):
     def __getitem__(self, idx):
         # TODO [part e]: see spec above
         ### YOUR CODE HERE ###
-        pass
+        if idx < 0:
+            idx += len(self.data)
+        assert idx < len(self.data) and idx >= 0, "Index out of range"
+        doc = self.data[idx]
+        doc_len = len(doc)
+        corruption_len = random.randint(4, int(self.block_size*7/8))
+        start = random.randint(0, doc_len - corruption_len)
+        end = start + corruption_len
+        corruption_doc = doc[start:end]
+        mask_len = random.randint(int(1/8*corruption_len), int(3/8*corruption_len))
+        mask_start = random.randint(0, corruption_len - mask_len)
+        mask_end = mask_start + mask_len
+        prifix = corruption_doc[:mask_start]
+        mask = corruption_doc[mask_start:mask_end]
+        suffix = corruption_doc[mask_end:]
+        masked_string = prifix + self.MASK_CHAR + suffix + self.MASK_CHAR + mask
+        masked_string = masked_string + self.PAD_CHAR*(self.block_size + 1 - len(masked_string))
+        x = masked_string[:-1]
+        y = masked_string[1:]
+        x = torch.tensor([self.stoi[s] for s in x], dtype=torch.long)
+        y = torch.tensor([self.stoi[s] for s in y], dtype=torch.long)
+        return x, y
         ### END YOUR CODE ###
 
 

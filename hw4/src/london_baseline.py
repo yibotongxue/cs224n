@@ -12,7 +12,13 @@ def main():
 
     # Compute accuracy in the range [0.0, 100.0]
     ### YOUR CODE HERE ###
-    pass
+    FILE_PATH = r"birth_dev.tsv"
+    predictions = []
+    with open(FILE_PATH, "r", encoding="utf-8") as f:
+        lines = f.readlines()
+        predictions = ["London" for _ in lines]
+    total, correct = utils.evaluate_places(FILE_PATH, predictions)
+    accuracy = correct / total * 100
     ### END YOUR CODE ###
 
     return accuracy

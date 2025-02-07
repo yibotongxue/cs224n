@@ -38,7 +38,10 @@ def precompute_rotary_emb(dim, max_positions):
     rope_cache = None
     # TODO: [part g]
     ### YOUR CODE HERE ###
-    pass
+    theta = [1/10000 ** (-2*(i-1)/dim) for i in range(1, dim // 2 + 1)]
+    cos = [[math.cos(p * t) for p in range(max_positions)] for t in theta]
+    sin = [[math.sin(p * t) for p in range(max_positions)] for t in theta]
+    rope_cache = torch.tensor([cos, sin]).transpose(0, 2)
     ### END YOUR CODE ###
     return rope_cache
 
@@ -58,7 +61,18 @@ def apply_rotary_emb(x, rope_cache):
 
     rotated_x = None
     ### YOUR CODE HERE ###
-    pass
+    # print(x.shape)
+    reshaped_x = x.transpose(1, 2)
+    prev_shape = reshaped_x.shape
+    reshaped_x = reshaped_x.reshape(x.size(0), x.size(2), -1, 2)
+    # print(reshaped_x.shape, rope_cache.shape)
+    reshaped_rope_cache = rope_cache[:x.size(2),:,:].contiguous()
+    # print(reshaped_rope_cache.shape)
+    # assert reshaped_x.shape[-2] == reshaped_rope_cache.shape[1], f"{reshaped_x.shape[-2]} != {reshaped_rope_cache.shape[1]}"
+    # print(torch.view_as_complex(reshaped_x).shape)
+    # print(torch.view_as_complex(reshaped_rope_cache).shape)
+    rotated_x = torch.view_as_real(torch.view_as_complex(reshaped_x) * torch.view_as_complex(reshaped_rope_cache))
+    rotated_x = rotated_x.reshape(prev_shape).transpose(1, 2)
     ### END YOUR CODE ###
     return rotated_x
 
@@ -86,7 +100,7 @@ class CausalSelfAttention(nn.Module):
             # Hint: The maximum sequence length is given by config.block_size.
             rope_cache = None
             ### YOUR CODE HERE ###
-            pass
+            rope_cache = precompute_rotary_emb(config.n_embd, config.block_size)
             ### END YOUR CODE ###
 
             self.register_buffer("rope_cache", rope_cache)
@@ -102,6 +116,7 @@ class CausalSelfAttention(nn.Module):
         self.n_head = config.n_head
 
     def forward(self, x):
+        # batch_size, sequence length, embedding dimensionality  (B, T, C)
         B, T, C = x.size()
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
@@ -112,7 +127,8 @@ class CausalSelfAttention(nn.Module):
         if self.rope:
             # TODO: [part g] Apply RoPE to the query and key.
             ### YOUR CODE HERE ###
-            pass
+            q = apply_rotary_emb(q, self.rope_cache)
+            k = apply_rotary_emb(k, self.rope_cache)
             ### END YOUR CODE ###
 
         # causal self-attention; Self-attend: (B, nh, T, hs) x (B, nh, hs, T) -> (B, nh, T, T)
@@ -135,7 +151,7 @@ class CausalCrossAttention(nn.Module):
     cross-attention between them.
     This follows the implementation of the self attention module with
     auto-regressive masking on (key).
-    Manipulation of batch-size to allow for different batch size between the 
+    Manipulation of batch-size to allow for different batch size between the
     two inputs, with broadcasting over to the higher batch size value.
     """
 
@@ -161,22 +177,22 @@ class CausalCrossAttention(nn.Module):
         Bq, Tq, Cq = x_q.size()
 
         # calculate query, key, values for all heads in batch and move head forward to be the batch dim
-        
+
         # keys of x1
         k = self.key(x_kv).view(Bk, Tk, self.n_head, Ck // self.n_head).transpose(1, 2) # (B, nh, Tk, hs)
-        
+
         # query with x2
         q = self.query(x_q).view(Bq, Tq, self.n_head, Cq // self.n_head).transpose(1, 2) # (B, nh, Tq, hs)
-        
+
         # values from x1
         v = self.value(x_kv).view(Bk, Tk, self.n_head, Ck // self.n_head).transpose(1, 2) # (B, nh, Tk, hs)
 
         # causal self-attention;  (B, nh, Tk, hs) x (B, nh, hs, Tq) -> (B, nh, Tq, Tk)
         att = (q @ k.transpose(-2, -1)) * (1.0 / math.sqrt(k.size(-1)))
-        
+
         B = max(Bk, Bq)
-        
-        att = att.masked_fill(self.mask[:,:,:Tq,:Tk] == 0, -1e10) 
+
+        att = att.masked_fill(self.mask[:,:,:Tq,:Tk] == 0, -1e10)
         att = F.softmax(att, dim=-1)
         att = self.attn_drop(att)
         y = att @ v # (B, nh, Tq, Tk) x (B, nh, Tk, hs) -> (B, nh, Tq, hs)

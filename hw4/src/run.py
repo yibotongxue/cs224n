@@ -1,3 +1,4 @@
+import copy
 import random
 import argparse
 
@@ -72,7 +73,9 @@ elif args.variant == 'rope':
     # TODO: [part g] Make some other model here
     # set mconf.rope parameter
     ### YOUR CODE HERE ###
-    pass
+    rconf = copy.deepcopy(mconf)
+    rconf.rope = True
+    model = models.GPT(rconf).to(device)
     ### END YOUR CODE ###
 else:
     raise ValueError("Unknown model variant")

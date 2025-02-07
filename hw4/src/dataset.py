@@ -106,7 +106,7 @@ class CharCorruptionDataset(Dataset):
         assert idx < len(self.data) and idx >= 0, "Index out of range"
         doc = self.data[idx]
         doc_len = len(doc)
-        corruption_len = random.randint(4, int(self.block_size*7/8))
+        corruption_len = random.randint(4, min(doc_len, max(4, int(self.block_size*7/8))))
         start = random.randint(0, doc_len - corruption_len)
         end = start + corruption_len
         corruption_doc = doc[start:end]

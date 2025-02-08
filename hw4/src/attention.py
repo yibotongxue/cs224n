@@ -38,10 +38,10 @@ def precompute_rotary_emb(dim, max_positions):
     rope_cache = None
     # TODO: [part g]
     ### YOUR CODE HERE ###
-    theta = [1/10000 ** (-2*(i-1)/dim) for i in range(1, dim // 2 + 1)]
+    theta = [1/10000 ** (-2*i/dim) for i in range(dim // 2)]
     cos = [[math.cos(p * t) for p in range(max_positions)] for t in theta]
     sin = [[math.sin(p * t) for p in range(max_positions)] for t in theta]
-    rope_cache = torch.tensor([cos, sin]).transpose(0, 2)
+    rope_cache = torch.tensor([cos, sin]).transpose(0, 2).contiguous()
     ### END YOUR CODE ###
     return rope_cache
 
@@ -61,18 +61,11 @@ def apply_rotary_emb(x, rope_cache):
 
     rotated_x = None
     ### YOUR CODE HERE ###
-    # print(x.shape)
-    reshaped_x = x.transpose(1, 2)
-    prev_shape = reshaped_x.shape
-    reshaped_x = reshaped_x.reshape(x.size(0), x.size(2), -1, 2)
-    # print(reshaped_x.shape, rope_cache.shape)
-    reshaped_rope_cache = rope_cache[:x.size(2),:,:].contiguous()
-    # print(reshaped_rope_cache.shape)
-    # assert reshaped_x.shape[-2] == reshaped_rope_cache.shape[1], f"{reshaped_x.shape[-2]} != {reshaped_rope_cache.shape[1]}"
-    # print(torch.view_as_complex(reshaped_x).shape)
-    # print(torch.view_as_complex(reshaped_rope_cache).shape)
+    prev_shape = x.shape
+    reshaped_x = x.reshape(x.size(0), x.size(1), x.size(2), -1, 2)
+    reshaped_rope_cache = rope_cache[:x.size(2),:,:]
     rotated_x = torch.view_as_real(torch.view_as_complex(reshaped_x) * torch.view_as_complex(reshaped_rope_cache))
-    rotated_x = rotated_x.reshape(prev_shape).transpose(1, 2)
+    rotated_x = rotated_x.reshape(prev_shape)
     ### END YOUR CODE ###
     return rotated_x
 
@@ -100,7 +93,7 @@ class CausalSelfAttention(nn.Module):
             # Hint: The maximum sequence length is given by config.block_size.
             rope_cache = None
             ### YOUR CODE HERE ###
-            rope_cache = precompute_rotary_emb(config.n_embd, config.block_size)
+            rope_cache = precompute_rotary_emb(config.n_embd // config.n_head, config.block_size)
             ### END YOUR CODE ###
 
             self.register_buffer("rope_cache", rope_cache)

@@ -38,7 +38,11 @@ def precompute_rotary_emb(dim, max_positions):
     rope_cache = None
     # TODO: [part g]
     ### YOUR CODE HERE ###
-    theta = [1/10000 ** (-2*i/dim) for i in range(dim // 2)]
+    # 这里本应该是 1/10000^(-2(i-1)/dim) for i in [1, dim/2] ，
+    # 但我查看了 https://github.com/ccmoony/Stanford-CS224n ，
+    # 其改作 10000^(-2(i)/dim) for i in [0, dim/2) ，并发现效果更好，
+    # 故亦改作 10000^(-2(i)/dim) for i in [0, dim/2)
+    theta = [10000 ** (-2*i/dim) for i in range(dim // 2)]
     cos = [[math.cos(p * t) for p in range(max_positions)] for t in theta]
     sin = [[math.sin(p * t) for p in range(max_positions)] for t in theta]
     rope_cache = torch.tensor([cos, sin]).transpose(0, 2).contiguous()
